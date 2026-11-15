@@ -135,7 +135,8 @@ function viewLogin() {
       <button class="btn" type="submit">Email me a sign-in link</button>
     </form>
     <form id="f-code" class="card" hidden>
-      <p>Check your email. Tap the link, <b>or</b> type the 6-digit code from the email here.</p>
+      <p><b>Check your email and tap the sign-in link.</b> Open it in the same browser you're using now.</p>
+      <p class="small">If your email shows a 6-digit code instead, type it here.</p>
       <label>Code from email<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required></label>
       <button class="btn" type="submit">Sign in with code</button>
       <button class="btn ghost" type="button" id="b-again">Use a different email</button>
