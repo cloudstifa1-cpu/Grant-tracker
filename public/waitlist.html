@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b10">
+  <title>GrantKeep — know what's left on every grant</title>
+  <meta name="description" content="Simple grant tracking for small nonprofits: budget left, report deadlines, and funder reports. $29/month, unlimited users. Join the waitlist.">
+  <meta property="og:title" content="GrantKeep — know what's left on every grant">
+  <meta property="og:description" content="Budget left, report deadlines, and funder reports for small nonprofits. Join the waitlist.">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .hero { padding: 1.5rem 0 .5rem; }
+    .hero h1 { font-size: 2rem; line-height: 1.15; }
+    .hero h1 span { color: var(--accent); }
+    .lead { font-size: 1.15rem; }
+    .feat { display: grid; gap: .75rem; }
+    .feat .card h3 { color: var(--accent); }
+    .stat { font-size: 1.6rem; font-weight: 900; color: var(--accent); }
+    .price { font-size: 2rem; font-weight: 900; }
+    .done { border: 3px solid var(--ok); }
+    .hp { position: absolute; left: -9999px; }
+    footer { padding: 2rem 0 3rem; font-size: .95rem; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">Grant<span>Keep</span></span>
+    <nav><a href="#join">Join waitlist</a></nav>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Know what's <span>left</span>, what's <span>due</span>, and what to <span>send</span> — for every grant.</h1>
+      <p class="lead">Simple grant tracking for small nonprofits, built for the part that comes <b>after</b> you win the grant.</p>
+      <a class="btn" href="#join">Join the waitlist — it's free</a>
+    </section>
+
+    <div class="note"><b>Moving from GrantHub?</b> It shut down January 31, 2026. GrantKeep will import your
+      spreadsheet in minutes, and you can always export all your data.</div>
+
+    <h2>Sound familiar?</h2>
+    <div class="feat">
+      <div class="card"><div class="stat">Only 18%</div>of grant professionals can answer "do we have budget left for this?" within minutes.</div>
+      <div class="card"><div class="stat">61%</div>keep a personal spreadsheet just to track grant budgets.</div>
+      <div class="card"><div class="stat">89%</div>had a missed report deadline, a budget mismatch, or another slip in the last two years.</div>
+    </div>
+    <p class="small">Source: Instrumentl survey of 1,031 grant professionals, March 2026.</p>
+
+    <h2>What GrantKeep does</h2>
+    <div class="feat">
+      <div class="card"><h3>💰 Budget left, instantly</h3>A meter on every grant and every budget line. A red warning <b>before</b> a line goes over.</div>
+      <div class="card"><h3>📅 Never miss a report</h3>Report due dates built from your award terms, with email reminders at 30, 14, 7, and 1 day, plus your Google or Outlook calendar.</div>
+      <div class="card"><h3>📄 Reports in minutes</h3>Budget-vs-actual tables ready for each funder, exported to PDF, Word, or Excel.</div>
+      <div class="card"><h3>📥 Works with what you have</h3>Import expenses from QuickBooks, Xero, or your bank. No switching accounting systems.</div>
+      <div class="card"><h3>👥 Your whole team</h3>Unlimited users. Program staff see their grant's spending, without seeing salaries.</div>
+      <div class="card"><h3>🔒 Your data stays yours</h3>Each organization's data is locked to that organization, two-step sign-in, and one-tap full export.</div>
+    </div>
+
+    <h2>Simple pricing</h2>
+    <div class="card">
+      <div class="price">$29<span class="small">/month</span></div>
+      <p>Unlimited grants and unlimited users. Or $290/year (2 months free).</p>
+      <p><b>Free plan:</b> 1 grant, forever. Waitlist members get early access.</p>
+    </div>
+
+    <h2 id="join">Join the waitlist</h2>
+    <form id="f" class="card">
+      <label>Email<input type="email" name="email" required autocomplete="email" inputmode="email" maxlength="254"></label>
+      <label>Organization name (optional)<input name="org_name" maxlength="200" autocomplete="organization"></label>
+      <label>Your organization's yearly budget
+        <select name="budget_size">
+          <option value="">Choose…</option>
+          <option value="under_250k">Under $250,000</option>
+          <option value="250k_1m">$250,000 – $1 million</option>
+          <option value="1m_2m">$1 – $2 million</option>
+          <option value="over_2m">Over $2 million</option>
+        </select></label>
+      <label>How do you track grants now?
+        <select name="current_tool">
+          <option value="">Choose…</option>
+          <option value="spreadsheet">Spreadsheets</option>
+          <option value="granthub">Was using GrantHub</option>
+          <option value="other_tool">Another grant tool</option>
+          <option value="nothing">Nothing yet</option>
+        </select></label>
+      <label class="hp" aria-hidden="true">Leave empty<input name="website" tabindex="-1" autocomplete="off"></label>
+      <button class="btn" type="submit">Join the waitlist</button>
+    </form>
+    <div id="thanks" class="card done" hidden>
+      <p class="big">✅ You're on the list!</p>
+      <p>We'll email you when early access opens. No spam, ever.</p>
+    </div>
+
+    <footer>© 2026 GrantKeep. Made for small nonprofits.</footer>
+  </main>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+    const toast = (m) => { const t = document.getElementById('toast'); t.textContent = m; t.className = 'show error'; setTimeout(() => t.className = '', 5000); };
+
+    // count one visit per browser per day
+    try {
+      const k = 'gk_wl_' + new Date().toLocaleDateString('en-CA');
+      if (!localStorage.getItem(k)) { localStorage.setItem(k, '1'); sb.rpc('count_waitlist_visit').then(() => {}); }
+    } catch { /* storage blocked — skip counting */ }
+
+    const f = document.getElementById('f');
+    f.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const d = Object.fromEntries(new FormData(f).entries());
+      if (d.website) return; // bot filled the hidden field
+      const btn = f.querySelector('button'); btn.disabled = true;
+      const { error } = await sb.from('waitlist').insert({
+        email: d.email.trim(), org_name: d.org_name.trim() || null,
+        budget_size: d.budget_size || null, current_tool: d.current_tool || null,
+        source: new URLSearchParams(location.search).get('from') || null,
+      });
+      btn.disabled = false;
+      if (error && error.code !== '23505') return toast('Something went wrong. Please try again.');
+      f.hidden = true;
+      document.getElementById('thanks').hidden = false;
+    };
+  </script>
+</body>
+</html>
