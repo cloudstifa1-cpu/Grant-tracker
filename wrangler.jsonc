@@ -1,0 +1,10 @@
+// Cloudflare Workers settings. Serves the files in ./public as a static site.
+// (Phase 4 will add a small Worker here for the daily reminder emails.)
+{
+  "name": "grant-tracker",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  }
+}
