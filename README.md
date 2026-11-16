@@ -11,8 +11,8 @@ budget left, deadlines, reports, documents, and handoff.
 |---|---|---|
 | 1 | Database (all tables, row-level security by org), email sign-in link / code, two-step sign-in (authenticator app), organization setup | ✅ Done |
 | 2 | Grants list, grant create/edit, funders, budget lines, expenses, **budget-left meter** (red warnings at 90% and 100%, plus a warning *before* an expense pushes a line over) | ✅ Done |
-| 3 | CSV expense import with saved column mapping | Next |
-| 4 | Deadline engine, email reminders (Resend), calendar feed (.ics) | |
+| 3 | CSV expense import: column-matching screen saved per source (QuickBooks, Xero, bank), duplicate check, sample file | ✅ Done |
+| 4 | Deadline engine, email reminders (Resend), calendar feed (.ics) | Next |
 | 5 | Report builder + PDF/Word/Excel export | |
 | 6 | Documents, team invites, activity log screen, full export | |
 | 7 | Stripe billing, free plan limits, landing page | |
@@ -27,6 +27,8 @@ database, not just hidden in the app.
 public/            the app (plain HTML/JS, no build step)
   index.html       page shell
   app.js           all screens
+  import.js        CSV expense import (Phase 3)
+  samples/         sample CSV file for testing imports
   styles.css       bright, high-contrast styles
   config.js        ← paste your Supabase URL + anon key here
   sw.js            lets it install like an app

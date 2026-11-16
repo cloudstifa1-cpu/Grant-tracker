@@ -106,3 +106,8 @@ input::placeholder, textarea::placeholder { color: #c9c9d6; }
 
 .qr { background: #fff; padding: .6rem; border-radius: 10px; width: 220px; }
 .mono { font-family: ui-monospace, monospace; word-break: break-all; }
+
+/* Phase 3: CSV import */
+[hidden] { display: none !important; }
+.stack { display: grid; gap: .8rem; }
+input[type="file"] { padding: .6rem; }

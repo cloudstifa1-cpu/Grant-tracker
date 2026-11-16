@@ -1,7 +1,8 @@
 // GrantKeep — Phase 1 (login, MFA, organization) + Phase 2 (grants, budget lines,
-// expenses, budget-left meter). Plain JS, no build step.
+// expenses, budget-left meter) + Phase 3 (CSV import, in import.js). Plain JS, no build step.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
+import { viewImport } from './import.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -95,6 +96,7 @@ async function route() {
     nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === `#/${page}`));
     window.scrollTo(0, 0);
     if (page === 'grant' && id) return viewGrant(id);
+    if (page === 'import' && id) return viewImport(id, { app, sb, state, esc, money, toast, friendlyError, fetchAll, canEdit, fmtDate });
     if (page === 'grant-new') return viewGrantForm(null);
     if (page === 'grant-edit' && id) return viewGrantForm(id);
     if (page === 'settings') return viewSettings();
@@ -323,7 +325,8 @@ async function viewGrant(id) {
         <button class="btn ghost" type="reset" id="line-cancel">Clear</button></div>
     </form>` : ''}
 
-    <h2>Add an expense</h2>
+    <div class="row"><h2>Add an expense</h2>
+      <a class="btn ghost small" href="#/import/${g.id}">Import from CSV</a></div>
     <form id="f-exp" class="card">
       <div class="two">
         <label>Date<input type="date" name="date" required value="${today()}"></label>
