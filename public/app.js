@@ -1,8 +1,9 @@
 // GrantKeep — Phase 1 (login, MFA, organization) + Phase 2 (grants, budget lines,
-// expenses, budget-left meter) + Phase 3 (CSV import, in import.js). Plain JS, no build step.
+// expenses, budget-left meter) + Phase 3 (CSV import, in import.js) + Phase 4 (deadlines.js). Plain JS, no build step.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { viewImport } from './import.js';
+import { viewDeadlines, mountGrantDeadlines, mountReminderSettings } from './deadlines.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -25,6 +26,7 @@ const fmtDate = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-US',
 const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
 const canEdit = () => ['admin', 'finance'].includes(state.member?.role);
 const isAdmin = () => state.member?.role === 'admin';
+const H = () => ({ app, sb, state, esc, money, toast, friendlyError, fetchAll, canEdit, isAdmin, fmtDate, today, confirmTap });
 const sum = (arr, f) => arr.reduce((t, x) => t + (Number(f(x)) || 0), 0);
 
 function toast(msg, isError = false) {
@@ -96,7 +98,8 @@ async function route() {
     nav.querySelectorAll('a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === `#/${page}`));
     window.scrollTo(0, 0);
     if (page === 'grant' && id) return viewGrant(id);
-    if (page === 'import' && id) return viewImport(id, { app, sb, state, esc, money, toast, friendlyError, fetchAll, canEdit, fmtDate });
+    if (page === 'import' && id) return viewImport(id, H());
+    if (page === 'deadlines') return viewDeadlines(H());
     if (page === 'grant-new') return viewGrantForm(null);
     if (page === 'grant-edit' && id) return viewGrantForm(id);
     if (page === 'settings') return viewSettings();
@@ -325,6 +328,9 @@ async function viewGrant(id) {
         <button class="btn ghost" type="reset" id="line-cancel">Clear</button></div>
     </form>` : ''}
 
+    <h2>Deadlines</h2>
+    <div id="gdl"><p class="loading">Loading deadlines…</p></div>
+
     <div class="row"><h2>Add an expense</h2>
       <a class="btn ghost small" href="#/import/${g.id}">Import from CSV</a></div>
     <form id="f-exp" class="card">
@@ -353,6 +359,9 @@ async function viewGrant(id) {
         </li>`).join('')}</ul>` : '<p>No expenses yet.</p>'}
     </div>
     ${isAdmin() ? '<button class="btn danger" id="del-grant">Delete this grant</button>' : ''}`;
+
+  mountGrantDeadlines(app.querySelector('#gdl'), g, H())
+    .catch((e) => { app.querySelector('#gdl').innerHTML = `<div class="alert">${esc(friendlyError(e))}</div>`; });
 
   // live "after this expense" warning — catches a line going over before it happens
   const fExp = app.querySelector('#f-exp');
@@ -473,6 +482,8 @@ async function viewGrantForm(id) {
       <label>Reporting schedule<select name="report_frequency">
         ${Object.entries(FREQS).map(([k, v]) => `<option value="${k}" ${k === g.report_frequency ? 'selected' : ''}>${v}</option>`).join('')}
       </select></label>
+      <label>Reports are due how many days after each period ends?
+        <input name="report_due_days" inputmode="numeric" value="${g.report_due_days ?? 30}" placeholder="30"></label>
       <label>Indirect rate % (optional)<input name="indirect_rate" inputmode="decimal" value="${g.indirect_rate ?? ''}" placeholder="Federal de minimis is up to 15"></label>
       <label>Allowed costs (from the award letter)<textarea name="allowed_costs" rows="3" maxlength="2000">${esc(g.allowed_costs)}</textarea></label>
       <label>Notes (contacts, terms, history — helps whoever takes over)<textarea name="notes" rows="4" maxlength="5000">${esc(g.notes)}</textarea></label>
@@ -489,6 +500,8 @@ async function viewGrantForm(id) {
     if (!Number.isFinite(amount) || amount < 0) return toast('Enter the amount awarded, like 25000', true);
     const rate = d.indirect_rate.trim() === '' ? null : num(d.indirect_rate);
     if (rate !== null && (!Number.isFinite(rate) || rate < 0 || rate > 100)) return toast('Indirect rate must be between 0 and 100', true);
+    const dueDays = d.report_due_days.trim() === '' ? 30 : Number(d.report_due_days);
+    if (!Number.isInteger(dueDays) || dueDays < 0 || dueDays > 365) return toast('Days after each period must be a whole number from 0 to 365', true);
     if (d.start_date && d.end_date && d.end_date < d.start_date) return toast('End date is before start date', true);
 
     let funderId = d.funder_id || null;
@@ -503,7 +516,7 @@ async function viewGrantForm(id) {
     const row = {
       title: d.title.trim(), funder_id: funderId, amount_awarded: amount, status: d.status,
       start_date: d.start_date || null, end_date: d.end_date || null, restricted: !!d.restricted,
-      report_frequency: d.report_frequency, indirect_rate: rate,
+      report_frequency: d.report_frequency, report_due_days: dueDays, indirect_rate: rate,
       allowed_costs: d.allowed_costs.trim() || null, notes: d.notes.trim() || null,
     };
     const res = id
@@ -547,6 +560,9 @@ async function viewSettings() {
     <div class="card"><ul class="list">${team.map((m) => `<li><b>${esc(m.email || 'Member')}</b> — ${esc(m.role)}</li>`).join('')}</ul>
       <p class="small">Inviting teammates comes in a later update.</p></div>
 
+    <h2>Reminders and calendar</h2>
+    <div id="rem-cal"><p class="loading">Loading…</p></div>
+
     <h2>Two-step sign-in</h2>
     <div class="card" id="mfa">
       ${verified.length
@@ -557,6 +573,8 @@ async function viewSettings() {
            <button class="btn" id="mfa-start">Turn on two-step sign-in</button>`}
     </div>`;
 
+  mountReminderSettings(app.querySelector('#rem-cal'), H())
+    .catch((e) => { app.querySelector('#rem-cal').innerHTML = `<div class="alert">${esc(friendlyError(e))}</div>`; });
   app.querySelector('#out').onclick = async () => { await sb.auth.signOut(); location.hash = ''; };
   const fOrg = app.querySelector('#f-org');
   fOrg.onsubmit = async (ev) => {

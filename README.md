@@ -12,8 +12,8 @@ budget left, deadlines, reports, documents, and handoff.
 | 1 | Database (all tables, row-level security by org), email sign-in link / code, two-step sign-in (authenticator app), organization setup | ✅ Done |
 | 2 | Grants list, grant create/edit, funders, budget lines, expenses, **budget-left meter** (red warnings at 90% and 100%, plus a warning *before* an expense pushes a line over) | ✅ Done |
 | 3 | CSV expense import: column-matching screen saved per source (QuickBooks, Xero, bank), duplicate check, sample file | ✅ Done |
-| 4 | Deadline engine, email reminders (Resend), calendar feed (.ics) | Next |
-| 5 | Report builder + PDF/Word/Excel export | |
+| 4 | Deadline engine (report due dates made from each grant's schedule), Deadlines tab, email reminders at 30/14/7/1 days (Resend, daily Cloudflare cron), private calendar link (.ics) | ✅ Done |
+| 5 | Report builder + PDF/Word/Excel export | Next |
 | 6 | Documents, team invites, activity log screen, full export | |
 | 7 | Stripe billing, free plan limits, landing page | |
 
@@ -28,11 +28,14 @@ public/            the app (plain HTML/JS, no build step)
   index.html       page shell
   app.js           all screens
   import.js        CSV expense import (Phase 3)
+  deadlines.js     deadlines, reminder + calendar settings (Phase 4)
   samples/         sample CSV file for testing imports
   styles.css       bright, high-contrast styles
   config.js        ← paste your Supabase URL + anon key here
   sw.js            lets it install like an app
 supabase/schema.sql  the whole database + security rules
+supabase/phase4.sql  Phase 4 database additions (run once after schema.sql)
+src/index.js       Worker: calendar feed + daily reminder emails
 wrangler.jsonc     Cloudflare settings
 ```
 
@@ -68,3 +71,16 @@ add budget lines, add expenses, and watch the meters.
   org's grant.
 - Activity log records every add/change/delete on grants, lines, expenses, funders, members.
 - Keep this repo **private**.
+
+## Phase 4 setup (reminder emails + calendar)
+
+1. Supabase > SQL Editor > New query: paste `supabase/phase4.sql` > Run.
+2. Cloudflare > Workers > grant-tracker > Settings > Variables and Secrets > Add:
+   - `SUPABASE_SERVICE_KEY` (Secret): Supabase > Project Settings > API Keys > secret key
+   - `RESEND_API_KEY` (Secret): resend.com > API Keys
+   - `REMINDER_FROM` (Text): `GrantKeep <reminders@your-verified-domain>`
+   - `CRON_SECRET` (Secret, optional): any long random text, to test with
+     `/api/run-reminders?key=YOUR_CRON_SECRET`
+3. Reminders run every day at 13:00 UTC (7 AM Central).
+
+Until a domain is verified in Resend, emails only go to the email address on your Resend account.

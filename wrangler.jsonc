@@ -1,10 +1,22 @@
-// Cloudflare Workers settings. Serves the files in ./public as a static site.
-// (Phase 4 will add a small Worker here for the daily reminder emails.)
+// Cloudflare Workers settings. Serves the files in ./public, plus a small Worker
+// (src/index.js) for the calendar feed and the daily reminder emails.
 {
   "name": "grant-tracker",
+  "main": "src/index.js",
   "compatibility_date": "2026-11-01",
   "assets": {
     "directory": "./public",
-    "not_found_handling": "single-page-application"
-  }
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/cal/*", "/api/*"]
+  },
+  // every day at 13:00 UTC (7 AM Central)
+  "triggers": { "crons": ["0 13 * * *"] },
+  "vars": {
+    "SUPABASE_URL": "https://jvsxnjfrsygkbgromhbv.supabase.co",
+    "APP_URL": "https://grant-tracker.cloudstifa1.workers.dev"
+  },
+  // keep the secrets and settings you add in the Cloudflare dashboard
+  "keep_vars": true,
+  "observability": { "enabled": true }
 }
