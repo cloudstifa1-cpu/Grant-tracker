@@ -1,9 +1,11 @@
 // GrantKeep — Phase 1 (login, MFA, organization) + Phase 2 (grants, budget lines,
-// expenses, budget-left meter) + Phase 3 (CSV import, in import.js) + Phase 4 (deadlines.js). Plain JS, no build step.
+// expenses, budget-left meter) + Phase 3 (CSV import, in import.js) + Phase 4 (deadlines.js)
+// + Phase 5 (report builder + exports, in reports.js). Plain JS, no build step.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { viewImport } from './import.js';
 import { viewDeadlines, mountGrantDeadlines, mountReminderSettings } from './deadlines.js';
+import { viewReport } from './reports.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -100,6 +102,7 @@ async function route() {
     if (page === 'grant' && id) return viewGrant(id);
     if (page === 'import' && id) return viewImport(id, H());
     if (page === 'deadlines') return viewDeadlines(H());
+    if (page === 'report' && id) return viewReport(id, H());
     if (page === 'grant-new') return viewGrantForm(null);
     if (page === 'grant-edit' && id) return viewGrantForm(id);
     if (page === 'settings') return viewSettings();
@@ -303,7 +306,8 @@ async function viewGrant(id) {
       ${edit ? `<div class="actions"><a class="btn ghost small" href="#/grant-edit/${g.id}">Edit grant</a></div>` : ''}
     </div>
 
-    <h2>Budget left</h2>
+    <div class="row"><h2>Budget left</h2>
+      <a class="btn small" href="#/report/${g.id}">Make a report</a></div>
     <div class="card">${meter(spent, approved, 'Whole grant')}</div>
     ${mismatch ? `<div class="alert">Budget lines add up to ${money(lineTotal)}, but the award is ${money(g.amount_awarded)}. Check the award letter.</div>` : ''}
     ${!lines.length ? '<div class="note">No budget lines yet. Add the lines from the award letter so you can see what\'s left on each one.</div>' : ''}
