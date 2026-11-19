@@ -1,11 +1,13 @@
 // GrantKeep — Phase 1 (login, MFA, organization) + Phase 2 (grants, budget lines,
 // expenses, budget-left meter) + Phase 3 (CSV import, in import.js) + Phase 4 (deadlines.js)
-// + Phase 5 (report builder + exports, in reports.js). Plain JS, no build step.
+// + Phase 5 (report builder + exports, in reports.js) + Phase 6 (documents.js, admin.js). Plain JS, no build step.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { viewImport } from './import.js';
 import { viewDeadlines, mountGrantDeadlines, mountReminderSettings } from './deadlines.js';
 import { viewReport } from './reports.js';
+import { mountGrantDocuments } from './documents.js';
+import { mountTeam, viewActivity, fullExport } from './admin.js';
 
 const app = document.getElementById('app');
 const nav = document.getElementById('nav');
@@ -103,6 +105,7 @@ async function route() {
     if (page === 'import' && id) return viewImport(id, H());
     if (page === 'deadlines') return viewDeadlines(H());
     if (page === 'report' && id) return viewReport(id, H());
+    if (page === 'activity') return viewActivity(H());
     if (page === 'grant-new') return viewGrantForm(null);
     if (page === 'grant-edit' && id) return viewGrantForm(id);
     if (page === 'settings') return viewSettings();
@@ -115,6 +118,8 @@ async function route() {
 }
 
 async function loadMembership() {
+  // If someone invited this email to their team, join it now (quietly skipped before phase6.sql is run).
+  try { await sb.rpc('accept_invites'); } catch { /* not set up yet */ }
   const { data, error } = await sb.from('members')
     .select('id, role, email, org_id, organizations(*)')
     .eq('user_id', state.session.user.id);
@@ -362,8 +367,11 @@ async function viewGrant(id) {
           ${edit ? `<button class="btn danger small" data-del-exp="${x.id}">Delete</button>` : ''}
         </li>`).join('')}</ul>` : '<p>No expenses yet.</p>'}
     </div>
+    <h2>Documents</h2>
+    <div id="gdocs"><p class="loading">Loading documents…</p></div>
     ${isAdmin() ? '<button class="btn danger" id="del-grant">Delete this grant</button>' : ''}`;
 
+  mountGrantDocuments(app.querySelector('#gdocs'), g, H());
   mountGrantDeadlines(app.querySelector('#gdl'), g, H())
     .catch((e) => { app.querySelector('#gdl').innerHTML = `<div class="alert">${esc(friendlyError(e))}</div>`; });
 
@@ -535,10 +543,7 @@ async function viewGrantForm(id) {
 // ---------- views: settings ----------
 async function viewSettings() {
   app.innerHTML = '<p class="loading">Loading…</p>';
-  const [{ data: factors, error }, team] = await Promise.all([
-    sb.auth.mfa.listFactors(),
-    fetchAll(() => sb.from('members').select('id, email, role').eq('org_id', state.org.id).order('created_at')),
-  ]);
+  const { data: factors, error } = await sb.auth.mfa.listFactors();
   if (error) throw error;
   const verified = factors.totp.filter((f) => f.status === 'verified');
   const o = state.org;
@@ -560,9 +565,16 @@ async function viewSettings() {
       ${isAdmin() ? '<button class="btn" type="submit">Save organization</button>' : ''}
     </form>
 
-    <h2>Team (${team.length})</h2>
-    <div class="card"><ul class="list">${team.map((m) => `<li><b>${esc(m.email || 'Member')}</b> — ${esc(m.role)}</li>`).join('')}</ul>
-      <p class="small">Inviting teammates comes in a later update.</p></div>
+    <h2>Team</h2>
+    <div id="team"><p class="loading">Loading team…</p></div>
+${isAdmin() ? `
+    <h2>Records</h2>
+    <div class="card">
+      <p>See who changed what, and download everything (all records plus every uploaded file) as one .zip file.</p>
+      <div class="actions"><a class="btn ghost" href="#/activity">Activity log</a>
+        <button class="btn" id="export">Download all data</button></div>
+      <p class="small" id="export-msg"></p>
+    </div>` : ''}
 
     <h2>Reminders and calendar</h2>
     <div id="rem-cal"><p class="loading">Loading…</p></div>
@@ -577,6 +589,15 @@ async function viewSettings() {
            <button class="btn" id="mfa-start">Turn on two-step sign-in</button>`}
     </div>`;
 
+  mountTeam(app.querySelector('#team'), H(), location.origin);
+  const exp = app.querySelector('#export');
+  if (exp) exp.onclick = async () => {
+    const msg = app.querySelector('#export-msg');
+    exp.disabled = true;
+    try { await fullExport(H(), (t) => { msg.textContent = t; }); }
+    catch (e) { console.error(e); msg.textContent = ''; toast(`Download failed: ${friendlyError(e)}`, true); }
+    finally { exp.disabled = false; }
+  };
   mountReminderSettings(app.querySelector('#rem-cal'), H())
     .catch((e) => { app.querySelector('#rem-cal').innerHTML = `<div class="alert">${esc(friendlyError(e))}</div>`; });
   app.querySelector('#out').onclick = async () => { await sb.auth.signOut(); location.hash = ''; };
