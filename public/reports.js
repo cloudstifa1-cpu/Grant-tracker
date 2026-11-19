@@ -259,16 +259,18 @@ async function makePdf(data, notes, info, money) {
 async function makeDocx(data, notes, info, money) {
   const d = await import(LIB.docx);
   const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, HeadingLevel, AlignmentType, PageOrientation, ShadingType } = d;
-  const cell = (text, { bold = false, head = false, right = false } = {}) => new TableCell({
+  const cell = (text, { bold = false, head = false, right = false, w } = {}) => new TableCell({
+    width: { size: w, type: WidthType.DXA },
     shading: head ? { type: ShadingType.CLEAR, color: 'auto', fill: '000000' } : undefined,
     children: [new Paragraph({ alignment: right ? AlignmentType.RIGHT : AlignmentType.LEFT,
       children: [new TextRun({ text: String(text), bold: bold || head, color: head ? 'FFFFFF' : '000000', size: 18 })] })],
   });
-  const table = (head, rows, rightCols, boldLast) => new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+  // Column widths in twentieths of a point; each set adds up to the 9-inch landscape page.
+  const table = (head, rows, rightCols, boldLast, widths) => new Table({
+    width: { size: 12960, type: WidthType.DXA }, columnWidths: widths,
     rows: [
-      new TableRow({ tableHeader: true, children: head.map((h, i) => cell(h, { head: true, right: rightCols.includes(i) })) }),
-      ...rows.map((r, ri) => new TableRow({ children: r.map((v, i) => cell(v, { right: rightCols.includes(i), bold: boldLast && ri === rows.length - 1 })) })),
+      new TableRow({ tableHeader: true, children: head.map((h, i) => cell(h, { head: true, right: rightCols.includes(i), w: widths[i] })) }),
+      ...rows.map((r, ri) => new TableRow({ children: r.map((v, i) => cell(v, { right: rightCols.includes(i), bold: boldLast && ri === rows.length - 1, w: widths[i] })) })),
     ],
   });
   const children = [
@@ -279,13 +281,13 @@ async function makeDocx(data, notes, info, money) {
     children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 200 }, children: [new TextRun({ text: 'Summary', bold: true, color: '000000' })] }));
     info.summary.split(/\n+/).forEach((p) => children.push(new Paragraph({ children: [new TextRun({ text: p, size: 22 })] })));
   }
-  children.push(new Paragraph({ spacing: { before: 200 }, children: [] }), table(HEAD, tableRows(data, notes, money), [1, 2, 3, 4, 5], true));
+  children.push(new Paragraph({ spacing: { before: 200 }, children: [] }), table(HEAD, tableRows(data, notes, money), [1, 2, 3, 4, 5], true, [2200, 1300, 1400, 1300, 1300, 860, 4600]));
   if (info.withExp && data.expenses.length) {
     children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300 }, children: [new TextRun({ text: 'Expenses in this period', bold: true, color: '000000' })] }));
-    children.push(table(['Date', 'Vendor', 'Budget line', 'Memo', 'Amount'], expRows(data, info, money), [4], false));
+    children.push(table(['Date', 'Vendor', 'Budget line', 'Memo', 'Amount'], expRows(data, info, money), [4], false, [1400, 2800, 2600, 4560, 1600]));
   }
   const doc = new Document({
-    sections: [{ properties: { page: { size: { orientation: PageOrientation.LANDSCAPE } } }, children }],
+    sections: [{ properties: { page: { size: { width: 12240, height: 15840, orientation: PageOrientation.LANDSCAPE }, margin: { top: 1080, bottom: 1080, left: 1440, right: 1440 } } }, children }],
   });
   return Packer.toBlob(doc);
 }
