@@ -62,22 +62,25 @@ function buildReport(g, lines, expenses, start, end) {
 export async function viewReport(grantId, h) {
   const { app, sb, state, esc, money, toast, friendlyError, fetchAll, canEdit, fmtDate, today } = h;
   app.innerHTML = '<p class="loading">Loading report…</p>';
-  const [{ data: g, error }, lines, expenses, last] = await Promise.all([
+  const [{ data: g, error }, lines, expenses] = await Promise.all([
     sb.from('grants').select('*, funders(name)').eq('id', grantId).maybeSingle(),
     fetchAll(() => sb.from('budget_lines').select('*').eq('grant_id', grantId).order('created_at')),
     fetchAll(() => sb.from('expenses').select('*').eq('grant_id', grantId).order('date')),
-    sb.from('report_exports').select('*').eq('grant_id', grantId).order('created_at', { ascending: false }).limit(1),
   ]);
   if (error) throw error;
   if (!g) { app.innerHTML = '<div class="alert">Grant not found.</div><a class="btn" href="#/grants">Back to grants</a>'; return; }
 
-  const prev = last.data?.[0] || null; // missing if phase5.sql isn't run yet; that's fine
-  const notes = { ...(prev?.notes || {}) };
+  // Dates and notes are saved on this phone/browser, so no extra database setup is needed.
+  const KEY = `gk_report_${grantId}`;
+  let saved = {}; try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { saved = {}; }
+  const prev = saved.start ? saved : null;
+  const notes = { ...(saved.notes || {}) };
   const t0 = today();
   const defStart = g.start_date || `${t0.slice(0, 4)}-01-01`;
   const defEnd = g.end_date && g.end_date < t0 ? g.end_date : t0;
-  let start = prev?.period_start || defStart, end = prev?.period_end || defEnd;
-  let narrative = prev?.notes?.__summary || '';
+  let start = prev?.start || defStart, end = prev?.end || defEnd;
+  let narrative = saved.summary || '';
+  const keep = () => { try { localStorage.setItem(KEY, JSON.stringify({ start, end, notes, summary: narrative })); } catch { /* storage full or blocked */ } };
 
   app.innerHTML = `
     <a href="#/grant/${g.id}">← Back to grant</a>
@@ -136,7 +139,7 @@ export async function viewReport(grantId, h) {
         </div>
         <p><b>${pctText(total.pct)} spent</b> · ${data.expenses.length} expense${data.expenses.length === 1 ? '' : 's'} in these dates</p>
       </div>`;
-    rep.querySelectorAll('[data-note]').forEach((ta) => ta.addEventListener('input', () => { notes[ta.dataset.note] = ta.value; }));
+    rep.querySelectorAll('[data-note]').forEach((ta) => ta.addEventListener('input', () => { notes[ta.dataset.note] = ta.value; keep(); }));
   };
   render();
 
@@ -145,13 +148,13 @@ export async function viewReport(grantId, h) {
     e.preventDefault();
     const s = form.start.value, en = form.end.value;
     if (!s || !en || en < s) return toast('The "To" date must be on or after the "From" date.', true);
-    start = s; end = en; render();
+    start = s; end = en; keep(); render();
   });
   app.querySelector('#whole').addEventListener('click', () => {
     form.start.value = g.start_date || defStart; form.end.value = g.end_date || defEnd;
     form.requestSubmit();
   });
-  app.querySelector('#summary').addEventListener('input', (e) => { narrative = e.target.value; });
+  app.querySelector('#summary').addEventListener('input', (e) => { narrative = e.target.value; keep(); });
 
   const msg = app.querySelector('#dl-msg');
   app.querySelectorAll('[data-fmt]').forEach((btn) => btn.addEventListener('click', async () => {
@@ -170,12 +173,11 @@ export async function viewReport(grantId, h) {
       download(blob, name);
       msg.textContent = `Downloaded ${name}. Check your phone's Downloads folder.`;
       if (canEdit()) {
-        // Save the dates and notes so they're filled in next time.
+        // Keep a simple history of which reports were made.
         const { error: e2 } = await sb.from('report_exports').insert({
-          org_id: g.org_id, grant_id: g.id, period_start: start, period_end: end,
-          file_type: fmt, notes: { ...notes, __summary: narrative },
+          org_id: g.org_id, grant_id: g.id, period_start: start, period_end: end, file_path: name,
         });
-        if (e2) console.warn('Report history not saved (run supabase/phase5.sql):', e2.message);
+        if (e2) console.warn('Report history not saved:', e2.message);
       }
     } catch (e) {
       console.error(e);
